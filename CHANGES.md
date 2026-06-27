@@ -32,6 +32,15 @@ See [LICENSE.md](LICENSE.md) for details.
 - Note: `nvcc`-only CUDA filters (`scale_cuda`, `overlay_cuda`, `yadif_cuda`) are
   intentionally not built — `scale_npp` covers GPU scaling without the MSVC
   host-compiler complication that `--enable-cuda-nvcc` brings on MSYS2.
+- Added `--enable-libvmaf` (+ `psnr`/`ssim`/`xpsnr` filters) for objective quality
+  measurement. Used to verify `av1_nvenc` reaches the same VMAF as `h264_nvenc` at
+  ~34 % lower bitrate (VMAF 90) — up to ~39 % at lower bitrates — on real 1080p
+  content. `hevc_nvenc` saves ~20 %. AV1 NVENC is also faster than H.264 NVENC on
+  Ada. (FFmpeg's native AV1 *decoder* is incomplete on this build; decode AV1 with
+  `av1_cuvid` or `--enable-libdav1d`.)
+- `tools/batch_transcode.sh`: throughput helper — runs hardware-encoder jobs
+  serially (a single NVENC job already saturates the engine: 1→8 concurrent jobs
+  gained only ~17 % aggregate fps on a 4090) and CPU-encoder jobs in parallel.
 
 #### CCD/NUMA-aware thread affinity (Phase 1)
 - New `libavutil/cpu_topology.{c,h}`: detects CPU topology (CCD / L3 cache

@@ -71,6 +71,46 @@ FFMPEG=./ffmpeg.exe tools/batch_transcode.sh -i in/ -o out/ -c h264_nvenc -a "-p
 FFMPEG=./ffmpeg.exe tools/batch_transcode.sh -i in/ -o out/ -c libx264 -a "-preset medium -crf 20" -j 8
 ```
 
+### AV1 hardware encoding — ~⅓ smaller files at equal quality
+
+The build includes `av1_nvenc` (and `hevc_nvenc`). On an Ada GPU (RTX 4090)
+these are *faster* than `h264_nvenc` and produce substantially smaller files at
+the same quality.
+
+**Measured** — Big Buck Bunny 1080p, NVENC `-preset p6`, quality = VMAF
+(libvmaf, model v0.6.1) vs the source:
+
+| Bitrate | H.264 VMAF | HEVC VMAF | AV1 VMAF |
+|---------|-----------:|----------:|---------:|
+| ~1 Mbps | 65.6 | 74.9 | **78.1** |
+| ~2 Mbps | 81.4 | 85.6 | **87.8** |
+| ~4 Mbps | 89.9 | 91.9 | **92.9** |
+| ~8 Mbps | 94.2 | 95.3 | **95.7** |
+
+Bitrate needed for the **same** quality (log-interpolated from the table):
+
+| Target | H.264 | HEVC | AV1 |
+|--------|-------|------|-----|
+| VMAF 85 | baseline | −29 % | **−39 %** |
+| VMAF 90 | baseline | −20 % | **−34 %** |
+
+So `av1_nvenc` reaches the same perceptual quality as `h264_nvenc` at roughly
+**one-third less bitrate** — biggest at low bitrates, where it matters most.
+
+```bash
+# AV1 at a quality target (CQ), hardware speed:
+ffmpeg -i in.mp4 -c:v av1_nvenc -preset p6 -rc vbr -cq 28 -c:a copy out.mp4
+```
+
+> Gains here use the *hardware* encoder and an animated clip; software AV1
+> (SVT-AV1) and live-action content can differ. The numbers are conservative —
+> the source was already H.264, which slightly favours the H.264 baseline.
+
+> **Decoding AV1 output:** FFmpeg's *native* AV1 decoder is incomplete and fails
+> on this build (`Error submitting packet to decoder`). Decode AV1 with the
+> hardware decoder (`-c:v av1_cuvid`) or rebuild with `--enable-libdav1d`.
+> Normal players (browsers, VLC) already use dav1d, so AV1 files play fine there.
+
 ---
 
 ## 1. CCD / NUMA-aware threading
@@ -163,7 +203,8 @@ pacman -S --needed \
   mingw-w64-ucrt-x86_64-x264 mingw-w64-ucrt-x86_64-libass mingw-w64-ucrt-x86_64-fdk-aac \
   mingw-w64-ucrt-x86_64-shaderc mingw-w64-ucrt-x86_64-vulkan-headers mingw-w64-ucrt-x86_64-vulkan-loader \
   mingw-w64-ucrt-x86_64-opencl-headers mingw-w64-ucrt-x86_64-opencl-icd \
-  mingw-w64-ucrt-x86_64-ffnvcodec-headers mingw-w64-ucrt-x86_64-libvpl mingw-w64-ucrt-x86_64-amf-headers
+  mingw-w64-ucrt-x86_64-ffnvcodec-headers mingw-w64-ucrt-x86_64-libvpl mingw-w64-ucrt-x86_64-amf-headers \
+  mingw-w64-ucrt-x86_64-vmaf
 ```
 For NVIDIA NPP (`scale_npp`, GPU-resident scaling) you also need the CUDA
 Toolkit installed (provides the NPP libraries); the configure below points at
@@ -177,19 +218,19 @@ export TMP=/tmp TEMP=/tmp TMPDIR=/tmp   # required on Windows
   --cc=gcc \
   --enable-gpl --enable-nonfree \
   --enable-libx264 --enable-libass --enable-libfdk-aac \
-  --enable-libonnxruntime \
+  --enable-libonnxruntime --enable-libvmaf \
   --enable-vulkan --enable-libshaderc --enable-opencl \
   --enable-ffnvcodec --enable-cuvid --enable-nvenc --enable-nvdec \
   --enable-libvpl --enable-amf --enable-libnpp \
   --extra-cflags=-I/c/PROGRA~1/NVIDIA~2/CUDA/v12.6/include \
   --extra-ldflags=-L/c/PROGRA~1/NVIDIA~2/CUDA/v12.6/lib/x64 \
   --enable-protocol=file,pipe,data \
-  --enable-demuxer=mov,matroska,avi,mpegts,rawvideo,flv,ogg,wav,mp3,aac,flac \
+  --enable-demuxer=mov,matroska,avi,mpegts,rawvideo,flv,ogg,wav,mp3,aac,flac,yuv4mpegpipe \
   --enable-muxer=mp4,matroska,avi,mpegts,rawvideo,ogg,null,flv,mp3,adts,flac,wav \
   --enable-decoder=h264,hevc,vp8,vp9,av1,mpeg4,aac,mp3,ac3,opus,vorbis,flac,pcm_s16le,rawvideo,wrapped_avframe,ass,ssa,h264_cuvid,hevc_cuvid,av1_cuvid,vp9_cuvid,h264_qsv,hevc_qsv,av1_qsv \
   --enable-encoder=libx264,libfdk_aac,aac,rawvideo,wrapped_avframe,mpeg4,mp3,h264_nvenc,hevc_nvenc,av1_nvenc,h264_qsv,hevc_qsv,av1_qsv,h264_amf,hevc_amf,av1_amf \
   --enable-hwaccel=h264_nvdec,hevc_nvdec,av1_nvdec,vp9_nvdec,h264_d3d11va,hevc_d3d11va,av1_d3d11va \
-  --enable-filter=scale,format,ass,subtitles,amix,aresample,amerge,volume,aformat,overlay,crop,pad,vflip,hflip,transpose,rotate,trim,atrim,concat,split,asplit,fps,setpts,null,anull,dnn_processing,sr,derain,dnn_detect,scale_npp,scale_qsv,vpp_qsv,hwupload,hwupload_cuda,hwdownload \
+  --enable-filter=scale,format,ass,subtitles,amix,aresample,amerge,volume,aformat,overlay,crop,pad,vflip,hflip,transpose,rotate,trim,atrim,concat,split,asplit,fps,setpts,null,anull,dnn_processing,sr,derain,dnn_detect,scale_npp,scale_qsv,vpp_qsv,hwupload,hwupload_cuda,hwdownload,psnr,ssim,xpsnr,libvmaf \
   --enable-filter=avgblur_vulkan,scale_vulkan,transpose_vulkan,overlay_vulkan,nlmeans_vulkan \
   --enable-indev=lavfi \
   --disable-doc
