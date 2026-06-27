@@ -41,6 +41,11 @@ See [LICENSE.md](LICENSE.md) for details.
 - `tools/batch_transcode.sh`: throughput helper — runs hardware-encoder jobs
   serially (a single NVENC job already saturates the engine: 1→8 concurrent jobs
   gained only ~17 % aggregate fps on a 4090) and CPU-encoder jobs in parallel.
+- Added `--enable-libsvtav1` (SVT-AV1 software AV1 encoder). Measured vs.
+  `av1_nvenc` at 1080p: `libsvtav1 -preset 6` reaches VMAF 93 at 2 Mbps where
+  `av1_nvenc` needs ~4 Mbps (≈half the bitrate at equal quality) but runs at ~2.9×
+  realtime vs the hardware encoder's ~10.5×. Use hardware AV1 for speed, SVT-AV1
+  preset 6 for compression.
 
 #### CCD/NUMA-aware thread affinity (Phase 1)
 - New `libavutil/cpu_topology.{c,h}`: detects CPU topology (CCD / L3 cache

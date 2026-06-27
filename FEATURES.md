@@ -111,6 +111,35 @@ ffmpeg -i in.mp4 -c:v av1_nvenc -preset p6 -rc vbr -cq 28 -c:a copy out.mp4
 > hardware decoder (`-c:v av1_cuvid`) or rebuild with `--enable-libdav1d`.
 > Normal players (browsers, VLC) already use dav1d, so AV1 files play fine there.
 
+### Hardware vs. software AV1 — `av1_nvenc` vs `libsvtav1`
+
+The build also includes the **SVT-AV1** software encoder (`libsvtav1`). Hardware
+and software AV1 sit at opposite ends of the speed/quality curve.
+
+**Measured** — 1080p, same target bitrate, VMAF vs. source (RTX 4090 / Ryzen 9950X):
+
+| Encoder | Preset | 2 Mbps VMAF | 4 Mbps VMAF | Speed |
+|---------|--------|------------:|------------:|------:|
+| `av1_nvenc` (HW) | p5 | 88.5 | 93.3 | **10.5×** |
+| `libsvtav1` (SW) | 10 (fast) | 88.2 | — | 7.8× |
+| `libsvtav1` (SW) | 6 (quality) | **93.1** | **95.6** | 2.9× |
+
+Reading the table:
+- **For speed / realtime → `av1_nvenc`.** The hardware engine runs ~10× realtime
+  at any bitrate; nothing software matches it.
+- **For maximum compression → `libsvtav1 -preset 6`.** It reaches VMAF 93 at
+  2 Mbps where `av1_nvenc` needs ~4 Mbps — roughly **half the bitrate at equal
+  quality** — but at ~⅓ the speed.
+- Fast software (`-preset 10`) is the worst of both: slower than hardware with no
+  quality gain. The real choice is *HW for speed* vs *SW preset 6 for quality*.
+
+```bash
+# fastest (hardware):
+ffmpeg -i in.mp4 -c:v av1_nvenc -preset p5 -b:v 2M out.mp4
+# smallest at equal quality (software, ~3.6x slower):
+ffmpeg -i in.mp4 -c:v libsvtav1 -preset 6 -b:v 2M out.mp4
+```
+
 ---
 
 ## 1. CCD / NUMA-aware threading
@@ -204,7 +233,7 @@ pacman -S --needed \
   mingw-w64-ucrt-x86_64-shaderc mingw-w64-ucrt-x86_64-vulkan-headers mingw-w64-ucrt-x86_64-vulkan-loader \
   mingw-w64-ucrt-x86_64-opencl-headers mingw-w64-ucrt-x86_64-opencl-icd \
   mingw-w64-ucrt-x86_64-ffnvcodec-headers mingw-w64-ucrt-x86_64-libvpl mingw-w64-ucrt-x86_64-amf-headers \
-  mingw-w64-ucrt-x86_64-vmaf
+  mingw-w64-ucrt-x86_64-vmaf mingw-w64-ucrt-x86_64-svt-av1
 ```
 For NVIDIA NPP (`scale_npp`, GPU-resident scaling) you also need the CUDA
 Toolkit installed (provides the NPP libraries); the configure below points at
@@ -218,7 +247,7 @@ export TMP=/tmp TEMP=/tmp TMPDIR=/tmp   # required on Windows
   --cc=gcc \
   --enable-gpl --enable-nonfree \
   --enable-libx264 --enable-libass --enable-libfdk-aac \
-  --enable-libonnxruntime --enable-libvmaf \
+  --enable-libonnxruntime --enable-libvmaf --enable-libsvtav1 \
   --enable-vulkan --enable-libshaderc --enable-opencl \
   --enable-ffnvcodec --enable-cuvid --enable-nvenc --enable-nvdec \
   --enable-libvpl --enable-amf --enable-libnpp \
@@ -228,7 +257,7 @@ export TMP=/tmp TEMP=/tmp TMPDIR=/tmp   # required on Windows
   --enable-demuxer=mov,matroska,avi,mpegts,rawvideo,flv,ogg,wav,mp3,aac,flac,yuv4mpegpipe \
   --enable-muxer=mp4,matroska,avi,mpegts,rawvideo,ogg,null,flv,mp3,adts,flac,wav \
   --enable-decoder=h264,hevc,vp8,vp9,av1,mpeg4,aac,mp3,ac3,opus,vorbis,flac,pcm_s16le,rawvideo,wrapped_avframe,ass,ssa,h264_cuvid,hevc_cuvid,av1_cuvid,vp9_cuvid,h264_qsv,hevc_qsv,av1_qsv \
-  --enable-encoder=libx264,libfdk_aac,aac,rawvideo,wrapped_avframe,mpeg4,mp3,h264_nvenc,hevc_nvenc,av1_nvenc,h264_qsv,hevc_qsv,av1_qsv,h264_amf,hevc_amf,av1_amf \
+  --enable-encoder=libx264,libfdk_aac,aac,rawvideo,wrapped_avframe,mpeg4,mp3,h264_nvenc,hevc_nvenc,av1_nvenc,h264_qsv,hevc_qsv,av1_qsv,h264_amf,hevc_amf,av1_amf,libsvtav1 \
   --enable-hwaccel=h264_nvdec,hevc_nvdec,av1_nvdec,vp9_nvdec,h264_d3d11va,hevc_d3d11va,av1_d3d11va \
   --enable-filter=scale,format,ass,subtitles,amix,aresample,amerge,volume,aformat,overlay,crop,pad,vflip,hflip,transpose,rotate,trim,atrim,concat,split,asplit,fps,setpts,null,anull,dnn_processing,sr,derain,dnn_detect,scale_npp,scale_qsv,vpp_qsv,hwupload,hwupload_cuda,hwdownload,psnr,ssim,xpsnr,libvmaf \
   --enable-filter=avgblur_vulkan,scale_vulkan,transpose_vulkan,overlay_vulkan,nlmeans_vulkan \
