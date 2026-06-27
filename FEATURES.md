@@ -92,4 +92,43 @@ GPU compute uses the usual `--enable-vulkan` / `--enable-opencl`
 (`--enable-libshaderc` for Vulkan compute filters). CCD affinity has no extra
 dependency.
 
+### Full-featured build (Windows / MSYS2 ucrt64)
+
+Install dependencies first:
+```bash
+pacman -S --needed \
+  mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-nasm make diffutils pkgconf \
+  mingw-w64-ucrt-x86_64-x264 mingw-w64-ucrt-x86_64-libass mingw-w64-ucrt-x86_64-fdk-aac \
+  mingw-w64-ucrt-x86_64-shaderc mingw-w64-ucrt-x86_64-vulkan-headers mingw-w64-ucrt-x86_64-vulkan-loader \
+  mingw-w64-ucrt-x86_64-opencl-headers mingw-w64-ucrt-x86_64-opencl-icd
+```
+
+Configure with all features enabled:
+```bash
+export TMP=/tmp TEMP=/tmp TMPDIR=/tmp   # required on Windows
+
+./configure \
+  --cc=gcc \
+  --enable-gpl --enable-nonfree \
+  --enable-libx264 --enable-libass --enable-libfdk-aac \
+  --enable-libonnxruntime \
+  --enable-vulkan --enable-libshaderc --enable-opencl \
+  --enable-protocol=file,pipe,data \
+  --enable-demuxer=mov,matroska,avi,mpegts,rawvideo,flv,ogg,wav,mp3,aac,flac \
+  --enable-muxer=mp4,matroska,avi,mpegts,rawvideo,ogg,null,flv,mp3,adts,flac,wav \
+  --enable-decoder=h264,hevc,vp8,vp9,av1,mpeg4,aac,mp3,ac3,opus,vorbis,flac,pcm_s16le,rawvideo,wrapped_avframe,ass,ssa \
+  --enable-encoder=libx264,libfdk_aac,aac,rawvideo,wrapped_avframe,mpeg4,mp3 \
+  --enable-filter=scale,format,ass,subtitles,amix,aresample,amerge,volume,aformat,overlay,crop,pad,vflip,hflip,transpose,rotate,trim,atrim,concat,split,asplit,fps,setpts,null,anull,dnn_processing,sr,derain,dnn_detect \
+  --enable-filter=avgblur_vulkan,scale_vulkan,transpose_vulkan,overlay_vulkan,nlmeans_vulkan \
+  --enable-indev=lavfi \
+  --enable-hwaccel=h264_d3d11va,hevc_d3d11va,av1_d3d11va \
+  --disable-doc
+
+make -j$(nproc)
+```
+
+This produces an `ffmpeg.exe` with H.264 (libx264), AAC (libfdk_aac), ASS subtitles,
+audio mixing (amix), Vulkan/OpenCL GPU filters, and ONNX Runtime NPU inference all
+in one binary.
+
 For full details of every change, see [CHANGES.md](CHANGES.md).
