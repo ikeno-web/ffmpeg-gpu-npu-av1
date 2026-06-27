@@ -33,6 +33,7 @@
 #include "libavutil/dict.h"
 #include "libavutil/error.h"
 #include "libavutil/ffversion.h"
+#include "libavutil/gpu_compute.h"
 #include "libavutil/log.h"
 #include "libavutil/mem.h"
 #include "libavutil/parseutils.h"
@@ -1127,6 +1128,21 @@ int opt_numa_aware(void *optctx, const char *opt, const char *arg)
         av_cpu_force_numa_aware(mode);
 
     return ret;
+}
+
+int opt_gpu_backend(void *optctx, const char *opt, const char *arg)
+{
+    AVGPUComputeBackend b = av_gpu_compute_backend_from_name(arg);
+
+    if (b == AV_GPU_COMPUTE_NONE) {
+        av_log(NULL, AV_LOG_ERROR,
+               "Invalid -gpu_backend '%s' (expected vulkan, opencl, d3d12 or auto)\n",
+               arg);
+        return AVERROR(EINVAL);
+    }
+
+    av_gpu_compute_set_preferred(b);
+    return 0;
 }
 
 static void expand_filename_template(AVBPrint *bp, const char *template,

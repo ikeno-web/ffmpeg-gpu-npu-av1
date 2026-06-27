@@ -25,6 +25,7 @@
 
 #include "libavutil/avstring.h"
 #include "libavutil/dict.h"
+#include "libavutil/gpu_compute.h"
 #include "libavutil/mem.h"
 #include "libavutil/opt.h"
 
@@ -33,6 +34,69 @@
 #include "filters.h"
 
 #define WHITESPACES " \n\t\r"
+
+/**
+ * Resolve a filter name, with support for vendor-neutral "<base>_gpu"
+ * meta-filters (FFmpeg Plus extension). A name ending in "_gpu" is mapped
+ * to the best available GPU backend variant ("<base>_vulkan" /
+ * "<base>_opencl"), honoring the user's -gpu_backend preference.
+ *
+ * @return the resolved AVFilter, or NULL if none matches.
+ */
+static const AVFilter *gpu_resolve_filter(void *log_ctx, const char *name)
+{
+    static const AVGPUComputeBackend order[] = {
+        AV_GPU_COMPUTE_VULKAN, AV_GPU_COMPUTE_OPENCL, AV_GPU_COMPUTE_D3D12,
+        AV_GPU_COMPUTE_NONE,
+    };
+    const AVFilter *f = avfilter_get_by_name(name);
+    size_t len = name ? strlen(name) : 0;
+    char base[64];
+    int available;
+    AVGPUComputeBackend chosen;
+
+    if (f)
+        return f;
+    if (len <= 4 || len - 4 >= sizeof(base) || strcmp(name + len - 4, "_gpu"))
+        return NULL;
+
+    memcpy(base, name, len - 4);
+    base[len - 4] = 0;
+
+    available = av_gpu_compute_probe(NULL);
+    if (!available)
+        return NULL;
+
+    chosen = av_gpu_compute_select(av_gpu_compute_get_preferred(), NULL);
+
+    /* Try the selected backend first, then the rest in priority order. */
+    for (int pass = 0; pass < 2; pass++) {
+        for (int i = 0; order[i] != AV_GPU_COMPUTE_NONE; i++) {
+            AVGPUComputeBackend b = order[i];
+            char cand[80];
+
+            if (pass == 0 && b != chosen)
+                continue;
+            if (pass == 1 && b == chosen)
+                continue;
+            if (!(available & b))
+                continue;
+
+            snprintf(cand, sizeof(cand), "%s_%s", base,
+                     av_gpu_compute_backend_name(b));
+            f = avfilter_get_by_name(cand);
+            if (f) {
+                av_log(log_ctx, AV_LOG_VERBOSE,
+                       "GPU meta-filter '%s' resolved to '%s'.\n", name, cand);
+                return f;
+            }
+        }
+    }
+
+    av_log(log_ctx, AV_LOG_ERROR,
+           "GPU meta-filter '%s': no backend variant available.\n", name);
+    return NULL;
+}
 
 /**
  * Parse the name of a link, which has the format "[linkname]".
@@ -367,7 +431,7 @@ static int filter_parse(void *logctx, const char **filter,
     }
 
     if (**filter == '=') {
-        const AVFilter *f = avfilter_get_by_name(p->filter_name);
+        const AVFilter *f = gpu_resolve_filter(logctx, p->filter_name);
         char *opts;
 
         (*filter)++;
@@ -532,13 +596,14 @@ int avfilter_graph_segment_create_filters(AVFilterGraphSegment *seg, int flags)
 
         for (size_t j = 0; j < ch->nb_filters; j++) {
             AVFilterParams *p = ch->filters[j];
-            const AVFilter *f = avfilter_get_by_name(p->filter_name);
+            const AVFilter *f;
             char name[64];
 
             // skip already processed filters
             if (p->filter || !p->filter_name)
                 continue;
 
+            f = gpu_resolve_filter(seg->graph, p->filter_name);
             if (!f) {
                 av_log(seg->graph, AV_LOG_ERROR,
                        "No such filter: '%s'\n", p->filter_name);

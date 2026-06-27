@@ -32,7 +32,22 @@ See [LICENSE.md](LICENSE.md) for details.
   (larger gains expected on cache-heavy codecs).
 
 ### Custom Filters
-- (Planned) Vendor-neutral GPU compute dispatch (Vulkan / OpenCL / D3D12)
+
+#### Vendor-neutral GPU compute dispatch (Phase 2)
+- New `libavutil/gpu_compute.{c,h}`: runtime probe/selection of GPU compute
+  backends (Vulkan / OpenCL / D3D12) via `av_hwdevice_ctx_create`, with a
+  configurable priority (default Vulkan > OpenCL > D3D12).
+- New `*_gpu` meta-filters resolved in the graph parser: a filter named
+  `<base>_gpu` (e.g. `scale_gpu`, `avgblur_gpu`, `transpose_gpu`) is mapped
+  automatically to the best available backend variant
+  (`<base>_vulkan` / `<base>_opencl`), with graceful fallback when the
+  preferred backend or a given variant is unavailable. Existing backend
+  filters are untouched.
+- New public API `av_gpu_compute_set_preferred()` and CLI option
+  `-gpu_backend vulkan|opencl|d3d12|auto`.
+- Verified on RTX 4090 (Vulkan 1.4): `avgblur_gpu`/`scale_gpu`/`transpose_gpu`
+  resolve to the Vulkan variants, compile compute shaders, and run; explicit
+  `-gpu_backend opencl` with no OpenCL runtime falls back to Vulkan.
 
 ### Codec Improvements
 - (Planned) ONNX Runtime + DirectML DNN backend for NPU offloading

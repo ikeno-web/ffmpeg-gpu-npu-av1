@@ -35,6 +35,7 @@ HEADERS = adler32.h                                                     \
           fifo.h                                                        \
           file.h                                                        \
           frame.h                                                       \
+          gpu_compute.h                                                 \
           hash.h                                                        \
           hdr_dynamic_metadata.h                                        \
           hdr_dynamic_vivid_metadata.h                                  \
@@ -138,6 +139,7 @@ OBJS = adler32.o                                                        \
        float_dsp.o                                                      \
        fixed_dsp.o                                                      \
        frame.o                                                          \
+       gpu_compute.o                                                    \
        hash.o                                                           \
        hdr_dynamic_metadata.o                                           \
        hdr_dynamic_vivid_metadata.o                                     \

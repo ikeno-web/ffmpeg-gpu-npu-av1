@@ -201,6 +201,11 @@ int opt_cpucount(void *optctx, const char *opt, const char *arg);
  */
 int opt_numa_aware(void *optctx, const char *opt, const char *arg);
 
+/**
+ * Set the preferred GPU compute backend (FFmpeg Plus extension).
+ */
+int opt_gpu_backend(void *optctx, const char *opt, const char *arg);
+
 #define CMDUTILS_COMMON_OPTIONS                                                                                         \
     { "L",            OPT_TYPE_FUNC, OPT_EXIT,              { .func_arg = show_license },     "show license" },                          \
     { "h",            OPT_TYPE_FUNC, OPT_EXIT,              { .func_arg = show_help },        "show help", "topic" },                    \
@@ -231,6 +236,7 @@ int opt_numa_aware(void *optctx, const char *opt, const char *arg);
     { "cpuflags",     OPT_TYPE_FUNC, OPT_FUNC_ARG | OPT_EXPERT, { .func_arg = opt_cpuflags },     "force specific cpu flags", "flags" },     \
     { "cpucount",     OPT_TYPE_FUNC, OPT_FUNC_ARG | OPT_EXPERT, { .func_arg = opt_cpucount },     "force specific cpu count", "count" },     \
     { "numa_aware",   OPT_TYPE_FUNC, OPT_FUNC_ARG | OPT_EXPERT, { .func_arg = opt_numa_aware },   "CCD/NUMA-aware thread pinning (-1=auto,0=off,1=on)", "mode" }, \
+    { "gpu_backend",  OPT_TYPE_FUNC, OPT_FUNC_ARG | OPT_EXPERT, { .func_arg = opt_gpu_backend },  "preferred GPU compute backend for *_gpu filters", "vulkan|opencl|d3d12|auto" }, \
     { "hide_banner",  OPT_TYPE_BOOL, OPT_EXPERT,            {&hide_banner},                   "do not show program banner", "hide_banner" }, \
     CMDUTILS_COMMON_OPTIONS_AVDEVICE                                                                                    \
 
