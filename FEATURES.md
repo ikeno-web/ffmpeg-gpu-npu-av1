@@ -141,6 +141,24 @@ ffmpeg -i in.mp4 -c:v av1_nvenc -preset p5 -b:v 2M out.mp4
 ffmpeg -i in.mp4 -c:v libsvtav1 -preset 6 -b:v 2M out.mp4
 ```
 
+### NVENC codec ladder — which hardware encoder to pick
+
+Combining the quality and speed measurements above (1080p, RTX 4090, NVENC):
+
+| Encoder | Bitrate vs H.264¹ | Encode speed² | Pick when |
+|---------|------------------:|--------------:|-----------|
+| `h264_nvenc` | baseline | 8.4× | maximum device compatibility |
+| `hevc_nvenc` | −20 % | 5.7× | smaller files, broad HW HEVC support |
+| `av1_nvenc` | **−34 %** | **9.6×** | AV1 playback available (newest, best) |
+
+¹ Bitrate for equal quality (VMAF 90), from the AV1 efficiency table above.
+² Realtime multiple at preset p6, 4 Mbps.
+
+On Ada, **`av1_nvenc` is both the most efficient *and* the fastest** of the three —
+the obvious default wherever AV1 decode is supported (browsers, recent TVs/phones).
+`hevc_nvenc` is the middle ground for hardware that lacks AV1; `h264_nvenc` remains
+the universal-compatibility baseline.
+
 ---
 
 ## 1. CCD / NUMA-aware threading
