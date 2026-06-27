@@ -98,6 +98,8 @@ efficient *and* fastest NVENC codec.
 | `hevc_nvenc` | −20 % | 5.7× | smaller, broad HEVC support |
 | `av1_nvenc` | **−34 %** | **9.6×** | AV1 playback available |
 
+![NVENC codec efficiency — bitrate vs VMAF](docs/codec_rd_curve.png)
+
 See **[FEATURES.md](FEATURES.md)** for the full codec ladder, the SVT‑AV1 vs hardware
 comparison, and `tools/batch_transcode.sh` (serialize hardware jobs, parallelize CPU jobs).
 
