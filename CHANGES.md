@@ -36,8 +36,8 @@ See [LICENSE.md](LICENSE.md) for details.
   measurement. Used to verify `av1_nvenc` reaches the same VMAF as `h264_nvenc` at
   ~34 % lower bitrate (VMAF 90) — up to ~39 % at lower bitrates — on real 1080p
   content. `hevc_nvenc` saves ~20 %. AV1 NVENC is also faster than H.264 NVENC on
-  Ada. (FFmpeg's native AV1 *decoder* is incomplete on this build; decode AV1 with
-  `av1_cuvid` or `--enable-libdav1d`.)
+  Ada. AV1 *decoding* uses **libdav1d** (`--enable-libdav1d`) — native software AV1
+  decode with no hardware required; `av1_cuvid`/`av1_qsv` remain for hardware decode.
 - `tools/batch_transcode.sh`: throughput helper — runs hardware-encoder jobs
   serially (a single NVENC job already saturates the engine: 1→8 concurrent jobs
   gained only ~17 % aggregate fps on a 4090) and CPU-encoder jobs in parallel.

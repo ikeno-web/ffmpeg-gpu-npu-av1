@@ -106,10 +106,11 @@ ffmpeg -i in.mp4 -c:v av1_nvenc -preset p6 -rc vbr -cq 28 -c:a copy out.mp4
 > (SVT-AV1) and live-action content can differ. The numbers are conservative —
 > the source was already H.264, which slightly favours the H.264 baseline.
 
-> **Decoding AV1 output:** FFmpeg's *native* AV1 decoder is incomplete and fails
-> on this build (`Error submitting packet to decoder`). Decode AV1 with the
-> hardware decoder (`-c:v av1_cuvid`) or rebuild with `--enable-libdav1d`.
-> Normal players (browsers, VLC) already use dav1d, so AV1 files play fine there.
+> **Decoding AV1:** the build includes **libdav1d** (VideoLAN's AV1 decoder), so
+> AV1 decodes natively in software — no hardware decoder required. `libdav1d` is
+> the default AV1 decoder; `av1_cuvid` (NVDEC) and `av1_qsv` remain available for
+> hardware decode. (FFmpeg's *built-in* `av1` decoder is incomplete and is not
+> used.)
 
 ### Hardware vs. software AV1 — `av1_nvenc` vs `libsvtav1`
 
@@ -233,7 +234,7 @@ pacman -S --needed \
   mingw-w64-ucrt-x86_64-shaderc mingw-w64-ucrt-x86_64-vulkan-headers mingw-w64-ucrt-x86_64-vulkan-loader \
   mingw-w64-ucrt-x86_64-opencl-headers mingw-w64-ucrt-x86_64-opencl-icd \
   mingw-w64-ucrt-x86_64-ffnvcodec-headers mingw-w64-ucrt-x86_64-libvpl mingw-w64-ucrt-x86_64-amf-headers \
-  mingw-w64-ucrt-x86_64-vmaf mingw-w64-ucrt-x86_64-svt-av1
+  mingw-w64-ucrt-x86_64-vmaf mingw-w64-ucrt-x86_64-svt-av1 mingw-w64-ucrt-x86_64-dav1d
 ```
 For NVIDIA NPP (`scale_npp`, GPU-resident scaling) you also need the CUDA
 Toolkit installed (provides the NPP libraries); the configure below points at
@@ -247,7 +248,7 @@ export TMP=/tmp TEMP=/tmp TMPDIR=/tmp   # required on Windows
   --cc=gcc \
   --enable-gpl --enable-nonfree \
   --enable-libx264 --enable-libass --enable-libfdk-aac \
-  --enable-libonnxruntime --enable-libvmaf --enable-libsvtav1 \
+  --enable-libonnxruntime --enable-libvmaf --enable-libsvtav1 --enable-libdav1d \
   --enable-vulkan --enable-libshaderc --enable-opencl \
   --enable-ffnvcodec --enable-cuvid --enable-nvenc --enable-nvdec \
   --enable-libvpl --enable-amf --enable-libnpp \
@@ -256,7 +257,7 @@ export TMP=/tmp TEMP=/tmp TMPDIR=/tmp   # required on Windows
   --enable-protocol=file,pipe,data \
   --enable-demuxer=mov,matroska,avi,mpegts,rawvideo,flv,ogg,wav,mp3,aac,flac,yuv4mpegpipe \
   --enable-muxer=mp4,matroska,avi,mpegts,rawvideo,ogg,null,flv,mp3,adts,flac,wav \
-  --enable-decoder=h264,hevc,vp8,vp9,av1,mpeg4,aac,mp3,ac3,opus,vorbis,flac,pcm_s16le,rawvideo,wrapped_avframe,ass,ssa,h264_cuvid,hevc_cuvid,av1_cuvid,vp9_cuvid,h264_qsv,hevc_qsv,av1_qsv \
+  --enable-decoder=h264,hevc,vp8,vp9,av1,mpeg4,aac,mp3,ac3,opus,vorbis,flac,pcm_s16le,rawvideo,wrapped_avframe,ass,ssa,libdav1d,h264_cuvid,hevc_cuvid,av1_cuvid,vp9_cuvid,h264_qsv,hevc_qsv,av1_qsv \
   --enable-encoder=libx264,libfdk_aac,aac,rawvideo,wrapped_avframe,mpeg4,mp3,h264_nvenc,hevc_nvenc,av1_nvenc,h264_qsv,hevc_qsv,av1_qsv,h264_amf,hevc_amf,av1_amf,libsvtav1 \
   --enable-hwaccel=h264_nvdec,hevc_nvdec,av1_nvdec,vp9_nvdec,h264_d3d11va,hevc_d3d11va,av1_d3d11va \
   --enable-filter=scale,format,ass,subtitles,amix,aresample,amerge,volume,aformat,overlay,crop,pad,vflip,hflip,transpose,rotate,trim,atrim,concat,split,asplit,fps,setpts,null,anull,dnn_processing,sr,derain,dnn_detect,scale_npp,scale_qsv,vpp_qsv,hwupload,hwupload_cuda,hwdownload,psnr,ssim,xpsnr,libvmaf \
