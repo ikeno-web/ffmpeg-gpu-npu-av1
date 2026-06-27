@@ -18,13 +18,15 @@
 
 #include <stdatomic.h>
 #include "cpu.h"
+#include "cpu_topology.h"
 #include "internal.h"
 #include "slicethread.h"
 #include "mem.h"
 #include "thread.h"
+#include "thread_affinity.h"
 #include "avassert.h"
 
-#define MAX_AUTO_THREADS 16
+#define MAX_AUTO_THREADS 64
 
 #if HAVE_PTHREADS || HAVE_W32THREADS || HAVE_OS2THREADS
 
@@ -48,6 +50,7 @@ struct AVSliceThread {
     pthread_cond_t  done_cond;
     int             done;
     int             finished;
+    int             affinity_enabled;
 
     void            *priv;
     void            (*worker_func)(void *priv, int jobnr, int threadnr, int nb_jobs, int nb_threads);
@@ -182,6 +185,19 @@ int avpriv_slicethread_create(AVSliceThread **pctx, void *priv,
         while (!w->done)
             pthread_cond_wait(&w->cond, &w->mutex);
         pthread_mutex_unlock(&w->mutex);
+    }
+
+    /* Pin worker threads to CCDs to maximize L3 cache locality on
+     * multi-CCD CPUs (e.g. AMD Ryzen with two Core Complex Dies). */
+    {
+        const AVCPUTopology *topo = ff_get_cpu_topology();
+        if (topo->detected && topo->nb_ccds > 1) {
+            ctx->affinity_enabled = 1;
+            for (i = 0; i < nb_workers; i++) {
+                int ccd = ff_compute_ccd_for_thread(topo, i, nb_workers);
+                ff_set_thread_affinity_ccd(&ctx->workers[i].thread, topo, ccd);
+            }
+        }
     }
 
     return nb_threads;

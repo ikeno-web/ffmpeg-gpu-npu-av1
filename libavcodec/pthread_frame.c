@@ -43,12 +43,14 @@
 #include "libavutil/buffer.h"
 #include "libavutil/common.h"
 #include "libavutil/cpu.h"
+#include "libavutil/cpu_topology.h"
 #include "libavutil/frame.h"
 #include "libavutil/internal.h"
 #include "libavutil/log.h"
 #include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "libavutil/thread.h"
+#include "libavutil/thread_affinity.h"
 
 enum {
     /// Set when the thread is awaiting a packet.
@@ -903,6 +905,17 @@ static av_cold int init_thread(PerThreadContext *p, int *threads_to_free,
     if (err < 0)
         return err;
     p->thread_init = INITIALIZED;
+
+    /* Pin the frame worker to a CCD to keep its working set within one
+     * L3 cache domain on multi-CCD CPUs. */
+    {
+        const AVCPUTopology *topo = ff_get_cpu_topology();
+        if (topo->detected && topo->nb_ccds > 1) {
+            int idx = *threads_to_free - 1;
+            int ccd = ff_compute_ccd_for_thread(topo, idx, avctx->thread_count);
+            ff_set_thread_affinity_ccd(&p->thread, topo, ccd);
+        }
+    }
 
     return 0;
 }

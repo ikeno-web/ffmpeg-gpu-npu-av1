@@ -119,6 +119,7 @@ OBJS = adler32.o                                                        \
        camellia.o                                                       \
        channel_layout.o                                                 \
        cpu.o                                                            \
+       cpu_topology.o                                                   \
        crc.o                                                            \
        csp.o                                                            \
        des.o                                                            \
@@ -171,6 +172,7 @@ OBJS = adler32.o                                                        \
        slicethread.o                                                    \
        spherical.o                                                      \
        stereo3d.o                                                       \
+       thread_affinity.o                                                \
        threadmessage.o                                                  \
        time.o                                                           \
        timecode.o                                                       \

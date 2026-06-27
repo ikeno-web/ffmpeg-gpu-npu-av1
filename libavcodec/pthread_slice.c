@@ -130,7 +130,7 @@ int ff_slice_thread_init(AVCodecContext *avctx)
             nb_cpus = FFMIN(nb_cpus, (avctx->height+15)/16);
         // use number of cores + 1 as thread count if there is more than one
         if (nb_cpus > 1)
-            thread_count = avctx->thread_count = FFMIN(nb_cpus + 1, MAX_AUTO_THREADS);
+            thread_count = avctx->thread_count = FFMIN(nb_cpus + 1, MAX_AUTO_SLICE_THREADS);
         else
             thread_count = avctx->thread_count = 1;
     }

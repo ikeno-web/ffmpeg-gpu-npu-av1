@@ -21,9 +21,15 @@
 
 #include "avcodec.h"
 
+/* Upper bound for automatic frame-thread detection. Raised from the
+ * historical value of 16 to make use of high core count CPUs (e.g.
+ * AMD Ryzen 9000 series). The actual count is still bounded by the
+ * number of available logical CPUs. */
+#define MAX_AUTO_THREADS 64
+
 /* H.264 slice threading seems to be buggy with more than 16 threads,
- * limit the number of threads to 16 for automatic detection */
-#define MAX_AUTO_THREADS 16
+ * so keep a separate, lower cap for automatic slice-thread detection. */
+#define MAX_AUTO_SLICE_THREADS 16
 
 int ff_slice_thread_init(AVCodecContext *avctx);
 void ff_slice_thread_free(AVCodecContext *avctx);
