@@ -1,6 +1,6 @@
 # FFmpeg Plus — NPU‑accelerated FFmpeg
 
-**FFmpeg Plus is an enhanced fork of [FFmpeg](https://ffmpeg.org) (based on release `n7.1.5`) that can offload AI/ML video processing to an NPU (Neural Processing Unit), in addition to better multi‑core CPU and any‑vendor GPU acceleration.**
+**FFmpeg Plus is an enhanced fork of [FFmpeg](https://ffmpeg.org) (based on release `n7.1.5`) that adds hardware video transcode (NVENC / QSV / AMF + AV1), can offload AI/ML video processing to an NPU (Neural Processing Unit), and improves multi‑core CPU and any‑vendor GPU acceleration.**
 
 Same license as upstream FFmpeg (LGPL v2.1+ / GPL v2+).
 
@@ -73,6 +73,36 @@ Execution providers (`execution_provider=`): `cpu` (always available), `directml
 
 ---
 
+## 🚀 Hardware video transcode (NVENC / NVDEC / QSV / AMF + AV1)
+
+Full hardware encode/decode on the GPU's dedicated video engines, plus the
+modern **AV1** codec in both hardware and software.
+
+- **Encoders:** `h264_nvenc`, `hevc_nvenc`, `av1_nvenc` (NVIDIA) · `*_qsv` (Intel) · `*_amf` (AMD) · `libsvtav1` (SVT‑AV1, software)
+- **Decoders / hwaccel:** `*_cuvid`, `*_nvdec` (NVIDIA) · `*_qsv` (Intel) · **`libdav1d`** (native software AV1)
+- **Full‑GPU pipeline:** `-hwaccel cuda … -vf scale_npp=… -c:v h264_nvenc` keeps frames on the GPU — no CPU↔GPU copies.
+
+```bash
+# Full-GPU transcode (decode + scale + encode all on the GPU)
+ffmpeg -threads 1 -hwaccel cuda -hwaccel_output_format cuda -i in.mp4 \
+  -vf scale_npp=1920:1080 -c:v h264_nvenc -preset p7 out.mp4
+```
+
+**Measured on RTX 4090:** full‑GPU 4K→1080p ≈ **7.3× realtime**; AV1 vs H.264 at
+equal quality ≈ **−34 % bitrate** (VMAF‑verified). On Ada, `av1_nvenc` is the most
+efficient *and* fastest NVENC codec.
+
+| NVENC codec | bitrate vs H.264 (equal VMAF) | encode speed | pick when |
+|-------------|------------------------------:|-------------:|-----------|
+| `h264_nvenc` | baseline | 8.4× | max compatibility |
+| `hevc_nvenc` | −20 % | 5.7× | smaller, broad HEVC support |
+| `av1_nvenc` | **−34 %** | **9.6×** | AV1 playback available |
+
+See **[FEATURES.md](FEATURES.md)** for the full codec ladder, the SVT‑AV1 vs hardware
+comparison, and `tools/batch_transcode.sh` (serialize hardware jobs, parallelize CPU jobs).
+
+---
+
 ## ⚙️ Also enhanced
 
 ### Multi‑core CPU — CCD/NUMA‑aware threading
@@ -95,6 +125,8 @@ Standard FFmpeg build (see [INSTALL.md](INSTALL.md)) plus this fork's option:
 GPU compute uses `--enable-vulkan` / `--enable-opencl` (`--enable-libshaderc` for Vulkan compute filters). CCD affinity needs no extra dependency.
 
 For NPU/DirectML, build against an ONNX Runtime that ships `dml_provider_factory.h` (e.g. the `Microsoft.ML.OnnxRuntime.DirectML` package); configure then defines `HAVE_ONNXRUNTIME_DML` and the DirectML path is compiled in.
+
+Hardware transcode and AV1 add `--enable-ffnvcodec --enable-nvenc --enable-nvdec --enable-cuvid` (NVIDIA), `--enable-libvpl` (Intel QSV), `--enable-amf` (AMD), `--enable-libnpp` (`scale_npp`), `--enable-libsvtav1` (SVT‑AV1) and `--enable-libdav1d` (AV1 decode). **[FEATURES.md](FEATURES.md)** has the complete copy‑paste build recipe (with the MSYS2 packages).
 
 ---
 
