@@ -50,7 +50,23 @@ See [LICENSE.md](LICENSE.md) for details.
   `-gpu_backend opencl` with no OpenCL runtime falls back to Vulkan.
 
 ### Codec Improvements
-- (Planned) ONNX Runtime + DirectML DNN backend for NPU offloading
+
+#### ONNX Runtime DNN backend with DirectML/NPU offload (Phase 3)
+- New `libavfilter/dnn/dnn_backend_onnxrt.c`: a DNN backend built on the
+  ONNX Runtime C API, selectable as `dnn_backend=onnxruntime` on the DNN
+  filters (e.g. `dnn_processing`).
+- Execution providers via `execution_provider=cpu|directml|cuda`. The
+  DirectML EP (for NPU/GPU offload on Windows) is compiled in only when the
+  ONNX Runtime build provides `dml_provider_factory.h`
+  (`HAVE_ONNXRUNTIME_DML`); otherwise it warns and falls back to the CPU EP.
+- Resilient to ONNX Runtime version skew: requests the build's API version
+  and falls back to the newest the loaded runtime supports (verified with
+  1.26 headers against a 1.17 runtime DLL).
+- New configure option `--enable-libonnxruntime`.
+- Verified end-to-end on CPU EP (real ONNX model, frame-processing pipeline);
+  DirectML path verified to fall back cleanly where DML is absent. (Note: the
+  desktop Ryzen 9950X has no NPU; on-NPU execution requires Ryzen AI / Intel
+  Core Ultra / Snapdragon X hardware with a DirectML-enabled ONNX Runtime.)
 
 ## Building
 

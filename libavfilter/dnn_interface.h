@@ -35,7 +35,8 @@
 typedef enum {
     DNN_TF = 1,
     DNN_OV = 1 << 1,
-    DNN_TH = 1 << 2
+    DNN_TH = 1 << 2,
+    DNN_ONNXRT = 1 << 3
 } DNNBackendType;
 
 typedef enum {DNN_FLOAT = 1, DNN_UINT8 = 4} DNNDataType;
@@ -138,6 +139,20 @@ typedef struct THOptions {
     int optimize;
 } THOptions;
 
+typedef enum {
+    ORT_EP_CPU,
+    ORT_EP_DIRECTML,
+    ORT_EP_CUDA,
+} ONNXRTExecutionProvider;
+
+typedef struct ONNXRTOptions {
+    const AVClass *clazz;
+    int execution_provider;     // ONNXRTExecutionProvider
+    int device_id;              // GPU/NPU device index for the EP
+    int intra_threads;          // intra-op thread count (0 = ORT default)
+    int graph_optimization;     // 0..3 ORT graph optimization level
+} ONNXRTOptions;
+
 typedef struct DNNModule DNNModule;
 
 typedef struct DnnContext {
@@ -168,6 +183,9 @@ typedef struct DnnContext {
 #endif
 #if CONFIG_LIBTORCH
     THOptions torch_option;
+#endif
+#if CONFIG_LIBONNXRUNTIME
+    ONNXRTOptions onnxrt_option;
 #endif
 } DnnContext;
 

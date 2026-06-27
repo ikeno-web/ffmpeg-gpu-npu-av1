@@ -278,6 +278,9 @@ External library support:
   --enable-libsrt          enable Haivision SRT protocol via libsrt [no]
   --enable-libssh          enable SFTP protocol via libssh [no]
   --enable-libsvtav1       enable AV1 encoding via SVT [no]
+  --enable-libonnxruntime  enable ONNX Runtime as a DNN module backend
+                           (CPU EP always; DirectML EP for NPU offload when
+                           the ORT build provides it) [no]
   --enable-libtensorflow   enable TensorFlow as a DNN module backend
                            for DNN based filters like sr [no]
   --enable-libtesseract    enable Tesseract, needed for ocr filter [no]
@@ -1938,6 +1941,7 @@ EXTERNAL_LIBRARY_LIST="
     libmp3lame
     libmysofa
     libopencv
+    libonnxruntime
     libopenh264
     libopenjpeg
     libopenmpt
@@ -2516,6 +2520,7 @@ HAVE_LIST="
     libdrm_getfb2
     makeinfo
     makeinfo_html
+    onnxruntime_dml
     opencl_d3d11
     opencl_drm_arm
     opencl_drm_beignet
@@ -2855,7 +2860,7 @@ dirac_parse_select="golomb"
 dovi_rpudec_select="golomb"
 dovi_rpuenc_select="golomb"
 dnn_deps="avformat swscale"
-dnn_deps_any="libtensorflow libopenvino libtorch"
+dnn_deps_any="libtensorflow libopenvino libtorch libonnxruntime"
 error_resilience_select="me_cmp"
 evcparse_select="golomb"
 faandct_deps="faan"
@@ -7022,6 +7027,10 @@ enabled libssh            && require_pkg_config libssh "libssh >= 0.6.0" libssh/
 enabled libspeex          && require_pkg_config libspeex speex speex/speex.h speex_decoder_init
 enabled libsrt            && require_pkg_config libsrt "srt >= 1.3.0" srt/srt.h srt_socket
 enabled libsvtav1         && require_pkg_config libsvtav1 "SvtAv1Enc >= 0.9.0" EbSvtAv1Enc.h svt_av1_enc_init_handle
+enabled libonnxruntime    && { require_pkg_config libonnxruntime libonnxruntime onnxruntime_c_api.h OrtGetApiBase ||
+                                require libonnxruntime onnxruntime_c_api.h OrtGetApiBase -lonnxruntime; } &&
+                             { check_func_headers dml_provider_factory.h OrtSessionOptionsAppendExecutionProvider_DML -lonnxruntime &&
+                               enable onnxruntime_dml || true; }
 enabled libtensorflow     && require libtensorflow tensorflow/c/c_api.h TF_Version -ltensorflow
 enabled libtesseract      && require_pkg_config libtesseract tesseract tesseract/capi.h TessBaseAPICreate
 enabled libtheora         && require libtheora theora/theoraenc.h th_info_init -ltheoraenc -ltheoradec -logg

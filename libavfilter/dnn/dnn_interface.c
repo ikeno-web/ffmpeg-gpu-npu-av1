@@ -33,6 +33,7 @@
 extern const DNNModule ff_dnn_backend_openvino;
 extern const DNNModule ff_dnn_backend_tf;
 extern const DNNModule ff_dnn_backend_torch;
+extern const DNNModule ff_dnn_backend_onnxrt;
 
 #define OFFSET(x) offsetof(DnnContext, x)
 #define FLAGS AV_OPT_FLAG_FILTERING_PARAM
@@ -77,6 +78,9 @@ static const DnnBackendInfo dnn_backend_info_list[] = {
 #endif
 #if CONFIG_LIBTORCH
         {offsetof(DnnContext, torch_option), .module = &ff_dnn_backend_torch},
+#endif
+#if CONFIG_LIBONNXRUNTIME
+        {offsetof(DnnContext, onnxrt_option), .module = &ff_dnn_backend_onnxrt},
 #endif
 };
 
