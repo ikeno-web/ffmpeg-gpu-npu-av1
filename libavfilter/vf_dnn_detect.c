@@ -69,6 +69,9 @@ static const AVOption dnn_detect_options[] = {
 #if (CONFIG_LIBOPENVINO == 1)
     { "openvino",    "openvino backend flag",      0,                        AV_OPT_TYPE_CONST,     { .i64 = DNN_OV },    0, 0, FLAGS, .unit = "backend" },
 #endif
+#if (CONFIG_LIBONNXRUNTIME == 1)
+    { "onnxruntime", "onnxruntime backend flag",   0,                        AV_OPT_TYPE_CONST,     { .i64 = DNN_ONNXRT }, 0, 0, FLAGS, .unit = "backend" },
+#endif
     { "confidence",  "threshold of confidence",    OFFSET2(confidence),      AV_OPT_TYPE_FLOAT,     { .dbl = 0.5 },  0, 1, FLAGS},
     { "labels",      "path to labels file",        OFFSET2(labels_filename), AV_OPT_TYPE_STRING,    { .str = NULL }, 0, 0, FLAGS },
     { "model_type",  "DNN detection model type",   OFFSET2(model_type),      AV_OPT_TYPE_INT,       { .i64 = DDMT_SSD },    INT_MIN, INT_MAX, FLAGS, .unit = "model_type" },
@@ -83,7 +86,7 @@ static const AVOption dnn_detect_options[] = {
     { NULL }
 };
 
-AVFILTER_DNN_DEFINE_CLASS(dnn_detect, DNN_TF | DNN_OV);
+AVFILTER_DNN_DEFINE_CLASS(dnn_detect, DNN_TF | DNN_OV | DNN_ONNXRT);
 
 static inline float sigmoid(float x) {
     return 1.f / (1.f + exp(-x));
@@ -582,6 +585,9 @@ static int dnn_detect_post_proc(AVFrame *frame, DNNData *output, uint32_t nb, AV
     DnnContext *dnn_ctx = &ctx->dnnctx;
     switch (dnn_ctx->backend_type) {
     case DNN_OV:
+    case DNN_ONNXRT:
+        /* ONNX Runtime yields the same raw output tensors as OpenVINO;
+         * the SSD/YOLO interpretation is identical. */
         return dnn_detect_post_proc_ov(frame, output, nb, filter_ctx);
     case DNN_TF:
         return dnn_detect_post_proc_tf(frame, output, filter_ctx);
@@ -669,6 +675,7 @@ static int check_output_nb(DnnDetectContext *ctx, DNNBackendType backend_type, i
         }
         return 0;
     case DNN_OV:
+    case DNN_ONNXRT:
         return 0;
     default:
         avpriv_report_missing_feature(ctx, "Dnn detect filter does not support current backend\n");

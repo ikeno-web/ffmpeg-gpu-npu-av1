@@ -70,6 +70,11 @@ See [LICENSE.md](LICENSE.md) for details.
 - Backend exposed on `dnn_processing`, and extended to `sr`
   (super-resolution) and `derain`/`dehaze`. NPU 2x super-resolution verified
   end-to-end via DirectML (320x240 -> 640x480).
+- Object detection (`dnn_detect`) supported via ONNX Runtime: the backend now
+  handles multiple output tensors and the `DFT_ANALYTICS_DETECT` function type
+  (NHWC uint8 input), routing SSD/YOLO outputs through the same post-processing
+  as OpenVINO. Verified end-to-end on DirectML with an SSD-style model
+  (bounding boxes emitted as frame side-data).
 
 ## Building
 
