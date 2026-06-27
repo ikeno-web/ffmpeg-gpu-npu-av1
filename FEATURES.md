@@ -7,7 +7,44 @@ multi-CCD CPUs, any-vendor GPUs, and NPUs. Same LGPL/GPL license as upstream.
 |------|--------------|-----------|
 | CPU / threads | CCD/NUMA-aware thread pinning for chiplet CPUs | `-numa_aware` |
 | GPU | Vendor-neutral compute dispatch (Vulkan/OpenCL/D3D12) | `-gpu_backend`, `*_gpu` filters |
+| HW transcode | NVENC/NVDEC + QSV + AMF hardware encode/decode, full-GPU pipeline | `-c:v h264_nvenc`, `-hwaccel cuda` |
 | NPU / ML | ONNX Runtime backend with DirectML offload | `dnn_backend=onnxruntime:execution_provider=directml` |
+
+---
+
+## 0. Hardware-accelerated transcode (NVENC / NVDEC / QSV / AMF)
+
+The build ships with vendor hardware encoders and decoders so the GPU's
+dedicated video engines do the encode/decode work instead of the CPU.
+
+| Vendor | Decoders | Encoders | Scale filter |
+|--------|----------|----------|--------------|
+| NVIDIA | `*_cuvid`, `*_nvdec` hwaccel | `h264_nvenc`, `hevc_nvenc`, `av1_nvenc` | `scale_npp` |
+| Intel  | `*_qsv` | `h264_qsv`, `hevc_qsv`, `av1_qsv` | `scale_qsv`, `vpp_qsv` |
+| AMD    | (d3d11va) | `h264_amf`, `hevc_amf`, `av1_amf` | — |
+
+```bash
+# Simple: GPU encode (CPU decodes, NVENC encodes)
+ffmpeg -i in.mp4 -c:v h264_nvenc -preset p7 out.mp4
+
+# Full-GPU pipeline: NVDEC decodes -> scale_npp scales -> NVENC encodes,
+# the frame never leaves the GPU (no CPU<->GPU copy).
+ffmpeg -threads 1 -hwaccel cuda -hwaccel_output_format cuda -i in.mp4 \
+  -vf scale_npp=1920:1080 -c:v h264_nvenc -preset p7 out.mp4
+```
+
+**Measured on RTX 4090 (4K source):**
+| Job | CPU `libx264` | `h264_nvenc` | Full-GPU pipeline |
+|-----|---------------|--------------|-------------------|
+| 4K → 4K (quality preset) | 0.95× realtime (29 fps) | **2.81×** (85 fps) | — |
+| 4K → 1080p downscale | — | — | **7.28×** (220 fps) |
+
+> **Important — `-threads 1` with `-hwaccel cuda`:** this fork raises the
+> automatic frame-thread cap to 64 (see §1). NVDEC allocates a decode surface
+> per thread and fails above 32 surfaces (`CUDA_ERROR_INVALID_VALUE`). When
+> hardware-decoding, the GPU does the decode, so CPU threads add nothing — pass
+> `-threads 1` to keep the surface count in range. (CPU-only decode is
+> unaffected.)
 
 ---
 
@@ -100,8 +137,12 @@ pacman -S --needed \
   mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-nasm make diffutils pkgconf \
   mingw-w64-ucrt-x86_64-x264 mingw-w64-ucrt-x86_64-libass mingw-w64-ucrt-x86_64-fdk-aac \
   mingw-w64-ucrt-x86_64-shaderc mingw-w64-ucrt-x86_64-vulkan-headers mingw-w64-ucrt-x86_64-vulkan-loader \
-  mingw-w64-ucrt-x86_64-opencl-headers mingw-w64-ucrt-x86_64-opencl-icd
+  mingw-w64-ucrt-x86_64-opencl-headers mingw-w64-ucrt-x86_64-opencl-icd \
+  mingw-w64-ucrt-x86_64-ffnvcodec-headers mingw-w64-ucrt-x86_64-libvpl mingw-w64-ucrt-x86_64-amf-headers
 ```
+For NVIDIA NPP (`scale_npp`, GPU-resident scaling) you also need the CUDA
+Toolkit installed (provides the NPP libraries); the configure below points at
+CUDA 12.6 via the 8.3 short path (spaces in `Program Files` break the linker).
 
 Configure with all features enabled:
 ```bash
@@ -113,22 +154,32 @@ export TMP=/tmp TEMP=/tmp TMPDIR=/tmp   # required on Windows
   --enable-libx264 --enable-libass --enable-libfdk-aac \
   --enable-libonnxruntime \
   --enable-vulkan --enable-libshaderc --enable-opencl \
+  --enable-ffnvcodec --enable-cuvid --enable-nvenc --enable-nvdec \
+  --enable-libvpl --enable-amf --enable-libnpp \
+  --extra-cflags=-I/c/PROGRA~1/NVIDIA~2/CUDA/v12.6/include \
+  --extra-ldflags=-L/c/PROGRA~1/NVIDIA~2/CUDA/v12.6/lib/x64 \
   --enable-protocol=file,pipe,data \
   --enable-demuxer=mov,matroska,avi,mpegts,rawvideo,flv,ogg,wav,mp3,aac,flac \
   --enable-muxer=mp4,matroska,avi,mpegts,rawvideo,ogg,null,flv,mp3,adts,flac,wav \
-  --enable-decoder=h264,hevc,vp8,vp9,av1,mpeg4,aac,mp3,ac3,opus,vorbis,flac,pcm_s16le,rawvideo,wrapped_avframe,ass,ssa \
-  --enable-encoder=libx264,libfdk_aac,aac,rawvideo,wrapped_avframe,mpeg4,mp3 \
-  --enable-filter=scale,format,ass,subtitles,amix,aresample,amerge,volume,aformat,overlay,crop,pad,vflip,hflip,transpose,rotate,trim,atrim,concat,split,asplit,fps,setpts,null,anull,dnn_processing,sr,derain,dnn_detect \
+  --enable-decoder=h264,hevc,vp8,vp9,av1,mpeg4,aac,mp3,ac3,opus,vorbis,flac,pcm_s16le,rawvideo,wrapped_avframe,ass,ssa,h264_cuvid,hevc_cuvid,av1_cuvid,vp9_cuvid,h264_qsv,hevc_qsv,av1_qsv \
+  --enable-encoder=libx264,libfdk_aac,aac,rawvideo,wrapped_avframe,mpeg4,mp3,h264_nvenc,hevc_nvenc,av1_nvenc,h264_qsv,hevc_qsv,av1_qsv,h264_amf,hevc_amf,av1_amf \
+  --enable-hwaccel=h264_nvdec,hevc_nvdec,av1_nvdec,vp9_nvdec,h264_d3d11va,hevc_d3d11va,av1_d3d11va \
+  --enable-filter=scale,format,ass,subtitles,amix,aresample,amerge,volume,aformat,overlay,crop,pad,vflip,hflip,transpose,rotate,trim,atrim,concat,split,asplit,fps,setpts,null,anull,dnn_processing,sr,derain,dnn_detect,scale_npp,scale_qsv,vpp_qsv,hwupload,hwupload_cuda,hwdownload \
   --enable-filter=avgblur_vulkan,scale_vulkan,transpose_vulkan,overlay_vulkan,nlmeans_vulkan \
   --enable-indev=lavfi \
-  --enable-hwaccel=h264_d3d11va,hevc_d3d11va,av1_d3d11va \
   --disable-doc
 
 make -j$(nproc)
 ```
 
 This produces an `ffmpeg.exe` with H.264 (libx264), AAC (libfdk_aac), ASS subtitles,
-audio mixing (amix), Vulkan/OpenCL GPU filters, and ONNX Runtime NPU inference all
+audio mixing (amix), Vulkan/OpenCL GPU filters, NVENC/NVDEC + QSV + AMF hardware
+transcode with a full-GPU `scale_npp` pipeline, and ONNX Runtime NPU inference all
 in one binary.
+
+> CUDA filters that require `nvcc` (`scale_cuda`, `overlay_cuda`, `yadif_cuda`)
+> are **not** enabled here — they need `--enable-cuda-nvcc`, which on MSYS2 pulls
+> in the MSVC host compiler and complicates the build. `scale_npp` covers
+> GPU-resident scaling without `nvcc`.
 
 For full details of every change, see [CHANGES.md](CHANGES.md).

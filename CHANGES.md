@@ -12,6 +12,27 @@ See [LICENSE.md](LICENSE.md) for details.
 
 ### Performance Optimizations
 
+#### Hardware-accelerated transcode (NVENC / NVDEC / QSV / AMF) (Phase 4)
+- Enabled vendor hardware video engines so encode/decode no longer burden the CPU:
+  - NVIDIA: `*_cuvid` decoders, `h264/hevc/av1_nvdec` hwaccels, and
+    `h264/hevc/av1_nvenc` encoders (via the `ffnvcodec` headers; no CUDA SDK
+    runtime linkage, no `nvcc`).
+  - Intel: `*_qsv` decoders/encoders and `scale_qsv`/`vpp_qsv` (via oneVPL).
+  - AMD: `h264/hevc/av1_amf` encoders (via AMF headers).
+- Added `scale_npp` (NVIDIA Performance Primitives) for GPU-resident scaling, so a
+  decode → scale → encode chain can run entirely on the GPU
+  (`-hwaccel cuda -hwaccel_output_format cuda -vf scale_npp=... -c:v h264_nvenc`)
+  with no CPU↔GPU frame copies.
+- Verified on RTX 4090: 4K→4K NVENC `p7` ≈ **2.8×** realtime vs `libx264 veryslow`
+  at 0.95×; full-GPU 4K→1080p downscale ≈ **7.3×** realtime (220 fps).
+- Known interaction: with `-hwaccel cuda`, pass `-threads 1`. NVDEC allocates one
+  decode surface per frame-thread and fails above 32; the raised 64-thread cap from
+  Phase 1 can exceed that. GPU decode makes CPU threads irrelevant anyway. CPU-only
+  decode is unaffected.
+- Note: `nvcc`-only CUDA filters (`scale_cuda`, `overlay_cuda`, `yadif_cuda`) are
+  intentionally not built — `scale_npp` covers GPU scaling without the MSVC
+  host-compiler complication that `--enable-cuda-nvcc` brings on MSYS2.
+
 #### CCD/NUMA-aware thread affinity (Phase 1)
 - New `libavutil/cpu_topology.{c,h}`: detects CPU topology (CCD / L3 cache
   domains) on Windows (`GetLogicalProcessorInformationEx`) and Linux
