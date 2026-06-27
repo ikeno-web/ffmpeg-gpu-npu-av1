@@ -67,6 +67,9 @@ See [LICENSE.md](LICENSE.md) for details.
   DirectML path verified to fall back cleanly where DML is absent. (Note: the
   desktop Ryzen 9950X has no NPU; on-NPU execution requires Ryzen AI / Intel
   Core Ultra / Snapdragon X hardware with a DirectML-enabled ONNX Runtime.)
+- Backend exposed on `dnn_processing`, and extended to `sr`
+  (super-resolution) and `derain`/`dehaze`. NPU 2x super-resolution verified
+  end-to-end via DirectML (320x240 -> 640x480).
 
 ## Building
 

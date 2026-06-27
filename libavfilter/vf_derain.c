@@ -42,14 +42,17 @@ static const AVOption derain_options[] = {
     { "filter_type", "filter type(derain/dehaze)",  OFFSET(filter_type),    AV_OPT_TYPE_INT,    { .i64 = 0 },    0, 1, FLAGS, .unit = "type" },
     { "derain",      "derain filter flag",          0,                      AV_OPT_TYPE_CONST,  { .i64 = 0 },    0, 0, FLAGS, .unit = "type" },
     { "dehaze",      "dehaze filter flag",          0,                      AV_OPT_TYPE_CONST,  { .i64 = 1 },    0, 0, FLAGS, .unit = "type" },
-    { "dnn_backend", "DNN backend",                 OFFSET(dnnctx.backend_type),   AV_OPT_TYPE_INT,    { .i64 = 1 },    0, 1, FLAGS, .unit = "backend" },
+    { "dnn_backend", "DNN backend",                 OFFSET(dnnctx.backend_type),   AV_OPT_TYPE_INT,    { .i64 = DNN_TF }, INT_MIN, INT_MAX, FLAGS, .unit = "backend" },
 #if (CONFIG_LIBTENSORFLOW == 1)
-    { "tensorflow",  "tensorflow backend flag",     0,                      AV_OPT_TYPE_CONST,  { .i64 = 1 },    0, 0, FLAGS, .unit = "backend" },
+    { "tensorflow",  "tensorflow backend flag",     0,                      AV_OPT_TYPE_CONST,  { .i64 = DNN_TF }, 0, 0, FLAGS, .unit = "backend" },
+#endif
+#if (CONFIG_LIBONNXRUNTIME == 1)
+    { "onnxruntime", "onnxruntime backend flag",    0,                      AV_OPT_TYPE_CONST,  { .i64 = DNN_ONNXRT }, 0, 0, FLAGS, .unit = "backend" },
 #endif
     { NULL }
 };
 
-AVFILTER_DNN_DEFINE_CLASS(derain, DNN_TF);
+AVFILTER_DNN_DEFINE_CLASS(derain, DNN_TF | DNN_ONNXRT);
 
 static int filter_frame(AVFilterLink *inlink, AVFrame *in)
 {
