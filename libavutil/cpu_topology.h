@@ -65,4 +65,16 @@ const AVCPUTopology *ff_get_cpu_topology(void);
  */
 int ff_cpu_get_ccd_for_cpu(const AVCPUTopology *topo, int cpu_id);
 
+/**
+ * Returns the current NUMA/CCD affinity mode (-1 auto, 0 off, 1 on).
+ * The mode is set through the public av_cpu_force_numa_aware().
+ */
+int  ff_cpu_get_numa_aware(void);
+
+/**
+ * Convenience helper: returns 1 if per-CCD thread pinning should be applied
+ * for @p topo given the current mode, 0 otherwise.
+ */
+int  ff_cpu_should_pin(const AVCPUTopology *topo);
+
 #endif /* AVUTIL_CPU_TOPOLOGY_H */

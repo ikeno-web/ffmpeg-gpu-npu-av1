@@ -24,8 +24,12 @@ See [LICENSE.md](LICENSE.md) for details.
 - Raised the automatic frame-thread cap from 16 to 64 for high core-count
   CPUs (slice-thread auto cap stays at 16 to avoid the historical H.264
   slice-threading issue).
-- Verified on AMD Ryzen 9950X (2 CCDs, 8 cores / 16 threads each, 32 MB L3
-  per CCD): topology and per-CCD thread distribution detected correctly.
+- New public API `av_cpu_force_numa_aware(int mode)` and CLI option
+  `-numa_aware <-1|0|1>` (auto / off / on) to control the behaviour.
+- Verified end-to-end on AMD Ryzen 9950X (2 CCDs, 8 cores / 16 threads each,
+  32 MB L3 per CCD): topology detection, per-CCD pinning, and the on/off/auto
+  toggle all confirmed; ~7% faster mpeg4 1080p encode with pinning enabled
+  (larger gains expected on cache-heavy codecs).
 
 ### Custom Filters
 - (Planned) Vendor-neutral GPU compute dispatch (Vulkan / OpenCL / D3D12)

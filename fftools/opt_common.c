@@ -1104,6 +1104,31 @@ int opt_cpucount(void *optctx, const char *opt, const char *arg)
     return ret;
 }
 
+int opt_numa_aware(void *optctx, const char *opt, const char *arg)
+{
+    int ret;
+    int mode;
+
+    static const AVOption opts[] = {
+        {"mode", NULL, 0, AV_OPT_TYPE_INT, { .i64 = -1}, -1, 1},
+        {NULL},
+    };
+    static const AVClass class = {
+        .class_name = "numa_aware",
+        .item_name  = av_default_item_name,
+        .option     = opts,
+        .version    = LIBAVUTIL_VERSION_INT,
+    };
+    const AVClass *pclass = &class;
+
+    ret = av_opt_eval_int(&pclass, opts, arg, &mode);
+
+    if (!ret)
+        av_cpu_force_numa_aware(mode);
+
+    return ret;
+}
+
 static void expand_filename_template(AVBPrint *bp, const char *template,
                                      struct tm *tm)
 {

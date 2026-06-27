@@ -132,6 +132,16 @@ int av_cpu_count(void);
 void av_cpu_force_count(int count);
 
 /**
+ * Set the NUMA/CCD-aware thread affinity mode (FFmpeg Plus extension).
+ *
+ *   -1 = auto: pin worker threads per-CCD when more than one CCD is
+ *        detected (default).
+ *    0 = off: never pin threads.
+ *    1 = on: pin threads whenever the CPU topology could be detected.
+ */
+void av_cpu_force_numa_aware(int mode);
+
+/**
  * Get the maximum data alignment that may be required by FFmpeg.
  *
  * Note that this is affected by the build configuration and the CPU flags mask,

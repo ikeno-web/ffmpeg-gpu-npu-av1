@@ -196,6 +196,11 @@ int opt_cpuflags(void *optctx, const char *opt, const char *arg);
  */
 int opt_cpucount(void *optctx, const char *opt, const char *arg);
 
+/**
+ * Set the NUMA/CCD-aware thread affinity mode (FFmpeg Plus extension).
+ */
+int opt_numa_aware(void *optctx, const char *opt, const char *arg);
+
 #define CMDUTILS_COMMON_OPTIONS                                                                                         \
     { "L",            OPT_TYPE_FUNC, OPT_EXIT,              { .func_arg = show_license },     "show license" },                          \
     { "h",            OPT_TYPE_FUNC, OPT_EXIT,              { .func_arg = show_help },        "show help", "topic" },                    \
@@ -225,6 +230,7 @@ int opt_cpucount(void *optctx, const char *opt, const char *arg);
     { "max_alloc",    OPT_TYPE_FUNC, OPT_FUNC_ARG | OPT_EXPERT, { .func_arg = opt_max_alloc },    "set maximum size of a single allocated block", "bytes" }, \
     { "cpuflags",     OPT_TYPE_FUNC, OPT_FUNC_ARG | OPT_EXPERT, { .func_arg = opt_cpuflags },     "force specific cpu flags", "flags" },     \
     { "cpucount",     OPT_TYPE_FUNC, OPT_FUNC_ARG | OPT_EXPERT, { .func_arg = opt_cpucount },     "force specific cpu count", "count" },     \
+    { "numa_aware",   OPT_TYPE_FUNC, OPT_FUNC_ARG | OPT_EXPERT, { .func_arg = opt_numa_aware },   "CCD/NUMA-aware thread pinning (-1=auto,0=off,1=on)", "mode" }, \
     { "hide_banner",  OPT_TYPE_BOOL, OPT_EXPERT,            {&hide_banner},                   "do not show program banner", "hide_banner" }, \
     CMDUTILS_COMMON_OPTIONS_AVDEVICE                                                                                    \
 

@@ -21,6 +21,7 @@
 #include "config.h"
 
 #include <inttypes.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -38,6 +39,30 @@
 
 static AVCPUTopology topology;
 static AVOnce topology_once = AV_ONCE_INIT;
+
+/* -1 = auto, 0 = off, 1 = on */
+static atomic_int numa_aware_mode = -1;
+
+void av_cpu_force_numa_aware(int mode)
+{
+    atomic_store_explicit(&numa_aware_mode, mode, memory_order_relaxed);
+}
+
+int ff_cpu_get_numa_aware(void)
+{
+    return atomic_load_explicit(&numa_aware_mode, memory_order_relaxed);
+}
+
+int ff_cpu_should_pin(const AVCPUTopology *topo)
+{
+    int mode = ff_cpu_get_numa_aware();
+    if (!topo || !topo->detected || mode == 0)
+        return 0;
+    if (mode == 1)
+        return 1;
+    /* auto */
+    return topo->nb_ccds > 1;
+}
 
 static void topology_fallback(void)
 {

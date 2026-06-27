@@ -191,7 +191,7 @@ int avpriv_slicethread_create(AVSliceThread **pctx, void *priv,
      * multi-CCD CPUs (e.g. AMD Ryzen with two Core Complex Dies). */
     {
         const AVCPUTopology *topo = ff_get_cpu_topology();
-        if (topo->detected && topo->nb_ccds > 1) {
+        if (ff_cpu_should_pin(topo) && topo->nb_ccds > 1) {
             ctx->affinity_enabled = 1;
             for (i = 0; i < nb_workers; i++) {
                 int ccd = ff_compute_ccd_for_thread(topo, i, nb_workers);
