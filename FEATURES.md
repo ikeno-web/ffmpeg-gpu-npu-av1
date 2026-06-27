@@ -46,6 +46,31 @@ ffmpeg -threads 1 -hwaccel cuda -hwaccel_output_format cuda -i in.mp4 \
 > `-threads 1` to keep the surface count in range. (CPU-only decode is
 > unaffected.)
 
+### Batch transcoding — parallelize the CPU, serialize the GPU
+
+A common instinct is to run many transcode jobs in parallel for throughput.
+Whether that helps depends entirely on the encoder:
+
+**Measured on RTX 4090 (4K → 1080p `scale_npp` + `h264_nvenc`), aggregate fps:**
+| Concurrent jobs | 1 | 2 | 4 | 6 | 8 |
+|-----------------|---|---|---|---|---|
+| Aggregate fps | 201 | 226 | 233 | 234 | **236** |
+
+A single NVENC job already saturates the GPU's encode engine — running 8 in
+parallel raises throughput by only ~17 % while consuming 8× the VRAM and encode
+sessions. **Hardware encoders should be run serially.** CPU encoders
+(`libx264`/`libx265`) are the opposite: throughput scales with cores, so they
+*should* be run in parallel (and benefit from the CCD pinning in §1).
+
+`tools/batch_transcode.sh` encodes this rule — it auto-detects the encoder and
+runs hardware jobs serially, CPU jobs in parallel:
+```bash
+# GPU: serial (engine-bound)
+FFMPEG=./ffmpeg.exe tools/batch_transcode.sh -i in/ -o out/ -c h264_nvenc -a "-preset p5 -cq 26"
+# CPU: parallel across CCDs
+FFMPEG=./ffmpeg.exe tools/batch_transcode.sh -i in/ -o out/ -c libx264 -a "-preset medium -crf 20" -j 8
+```
+
 ---
 
 ## 1. CCD / NUMA-aware threading
