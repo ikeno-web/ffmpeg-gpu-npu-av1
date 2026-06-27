@@ -75,6 +75,14 @@ See [LICENSE.md](LICENSE.md) for details.
   (NHWC uint8 input), routing SSD/YOLO outputs through the same post-processing
   as OpenVINO. Verified end-to-end on DirectML with an SSD-style model
   (bounding boxes emitted as frame side-data).
+- Asynchronous, pipelined inference: with `async=1` the backend runs inference
+  on detached threads (ORT `Run()` is thread-safe), and `nireq` (default 2)
+  keeps several frames in flight so inference overlaps with decode/encode.
+  Throughput benefit scales with model weight; the speedup is largest for
+  heavy models where inference time dominates per-frame thread overhead.
+- Fixed an input-buffer leak: tensors created with
+  `CreateTensorWithDataAsOrtValue` do not own their data, so the backing
+  buffer is now tracked per request and freed on recycle.
 
 ## Building
 

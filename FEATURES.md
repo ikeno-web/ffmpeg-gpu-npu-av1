@@ -65,7 +65,12 @@ ffmpeg -i in.mp4 -vf \
   "format=yuv420p,sr=dnn_backend=onnxruntime:model=sr.onnx:execution_provider=directml" \
   out.mp4
 ```
-Filters supporting `dnn_backend=onnxruntime`: `dnn_processing`, `sr`, `derain`.
+Filters supporting `dnn_backend=onnxruntime`: `dnn_processing`, `sr`, `derain`, `dnn_detect`.
+
+**Pipelined inference:** add `async=1` to run inference on background threads and
+`nireq=N` (default 2) to keep several frames in flight, overlapping inference
+with decode/encode. Example:
+`dnn_processing=dnn_backend=onnxruntime:model=m.onnx:execution_provider=directml:async=1:nireq=4`
 Execution providers: `cpu` (always), `directml` (NPU/GPU, Windows),
 `cuda`. Verify NPU usage in **Task Manager → Performance → NPU**.
 

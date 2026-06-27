@@ -73,6 +73,7 @@ typedef struct ONNXModel {
 
 typedef struct ONNXInferRequest {
     OrtValue  *input_tensor;
+    void      *input_data;      /* backing buffer for input_tensor (ORT does not own it) */
     OrtValue **output_tensors;  /* nb_outputs entries */
     int        nb_outputs;
 } ONNXInferRequest;
@@ -157,6 +158,8 @@ static void onnx_free_request(ONNXModel *onnx_model, ONNXInferRequest *request)
         ort->ReleaseValue(request->input_tensor);
         request->input_tensor = NULL;
     }
+    /* ORT does not own the input buffer; free it here. */
+    av_freep(&request->input_data);
     if (request->output_tensors) {
         for (int i = 0; i < request->nb_outputs; i++) {
             if (request->output_tensors[i]) {
@@ -269,6 +272,9 @@ static int fill_model_input_onnx(ONNXModel *onnx_model, ONNXRequestItem *request
         av_freep(&input.data);
         return ret;
     }
+    /* Keep the buffer alive for the duration of the run; freed when the
+     * request is recycled (onnx_free_request). */
+    infer_request->input_data = input.data;
     return 0;
 }
 
@@ -432,8 +438,16 @@ static int execute_model_onnx(ONNXRequestItem *request, Queue *lltask_queue)
     if (ret != 0)
         goto err;
 
-    if (task->async)
-        avpriv_report_missing_feature(onnx_model->ctx, "ONNXRuntime async");
+    if (task->async) {
+        /* Run on a detached thread; the completion callback returns the
+         * request to request_queue. ORT Run() is thread-safe, so multiple
+         * requests (nireq) execute concurrently and overlap with
+         * decode/encode. */
+        ret = ff_dnn_start_inference_async(onnx_model->ctx, &request->exec_module);
+        if (ret != 0)
+            goto err;
+        return 0;
+    }
 
     ret = onnx_start_inference(request);
     if (ret != 0)
@@ -685,18 +699,24 @@ static DNNModel *dnn_load_model_onnx(DnnContext *ctx, DNNFunctionType func_type,
     if (!onnx_model->request_queue)
         goto fail;
 
-    item = av_mallocz(sizeof(*item));
-    if (!item)
-        goto fail;
-    item->infer_request = onnx_create_inference_request(onnx_model->nb_outputs);
-    if (!item->infer_request)
-        goto fail;
-    item->exec_module.start_inference = &onnx_start_inference;
-    item->exec_module.callback = &infer_completion_callback;
-    item->exec_module.args = item;
-    if (ff_safe_queue_push_back(onnx_model->request_queue, item) < 0)
-        goto fail;
-    item = NULL;
+    /* Allocate nireq inference requests so several frames can be in flight
+     * at once (pipelined with decode/encode). Default to a small pool. */
+    if (ctx->nireq <= 0)
+        ctx->nireq = 2;
+    for (int i = 0; i < ctx->nireq; i++) {
+        item = av_mallocz(sizeof(*item));
+        if (!item)
+            goto fail;
+        item->infer_request = onnx_create_inference_request(onnx_model->nb_outputs);
+        if (!item->infer_request)
+            goto fail;
+        item->exec_module.start_inference = &onnx_start_inference;
+        item->exec_module.callback = &infer_completion_callback;
+        item->exec_module.args = item;
+        if (ff_safe_queue_push_back(onnx_model->request_queue, item) < 0)
+            goto fail;
+        item = NULL;
+    }
 
     onnx_model->task_queue = ff_queue_create();
     if (!onnx_model->task_queue)
@@ -743,7 +763,7 @@ static int dnn_execute_model_onnx(const DNNModel *model, DNNExecBaseParams *exec
     if (!task)
         return AVERROR(ENOMEM);
 
-    ret = ff_dnn_fill_task(task, exec_params, onnx_model, 0, 1);
+    ret = ff_dnn_fill_task(task, exec_params, onnx_model, ctx->async, 1);
     if (ret != 0) {
         av_freep(&task);
         return ret;
@@ -759,6 +779,22 @@ static int dnn_execute_model_onnx(const DNNModel *model, DNNExecBaseParams *exec
     if (ret != 0) {
         av_log(ctx, AV_LOG_ERROR, "unable to extract last level task from task.\n");
         return ret;
+    }
+
+    if (ctx->async) {
+        /* Drain pending inferences; pop blocks until a request is free, so
+         * at most nireq run concurrently. */
+        while (ff_queue_size(onnx_model->lltask_queue) >= 1) {
+            request = ff_safe_queue_pop_front(onnx_model->request_queue);
+            if (!request) {
+                av_log(ctx, AV_LOG_ERROR, "unable to get infer request.\n");
+                return AVERROR(EINVAL);
+            }
+            ret = execute_model_onnx(request, onnx_model->lltask_queue);
+            if (ret != 0)
+                return ret;
+        }
+        return 0;
     }
 
     request = ff_safe_queue_pop_front(onnx_model->request_queue);
@@ -780,16 +816,26 @@ static int dnn_flush_onnx(const DNNModel *model)
 {
     ONNXModel *onnx_model = (ONNXModel *)model;
     ONNXRequestItem *request;
+    int ret;
 
     if (ff_queue_size(onnx_model->lltask_queue) == 0)
+        /* no pending task need to flush */
         return 0;
 
-    request = ff_safe_queue_pop_front(onnx_model->request_queue);
-    if (!request) {
-        av_log(onnx_model->ctx, AV_LOG_ERROR, "unable to get infer request.\n");
-        return AVERROR(EINVAL);
-    }
-    return execute_model_onnx(request, onnx_model->lltask_queue);
+    /* Kick off any remaining inferences. In async mode several may be
+     * started; each returns its request via the completion callback. */
+    do {
+        request = ff_safe_queue_pop_front(onnx_model->request_queue);
+        if (!request) {
+            av_log(onnx_model->ctx, AV_LOG_ERROR, "unable to get infer request.\n");
+            return AVERROR(EINVAL);
+        }
+        ret = execute_model_onnx(request, onnx_model->lltask_queue);
+        if (ret != 0)
+            return ret;
+    } while (ff_queue_size(onnx_model->lltask_queue) >= 1);
+
+    return 0;
 }
 
 static void dnn_free_model_onnx(DNNModel **model)
