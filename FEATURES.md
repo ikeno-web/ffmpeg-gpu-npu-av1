@@ -102,9 +102,12 @@ So `av1_nvenc` reaches the same perceptual quality as `h264_nvenc` at roughly
 ffmpeg -i in.mp4 -c:v av1_nvenc -preset p6 -rc vbr -cq 28 -c:a copy out.mp4
 ```
 
-> Gains here use the *hardware* encoder and an animated clip; software AV1
-> (SVT-AV1) and live-action content can differ. The numbers are conservative —
-> the source was already H.264, which slightly favours the H.264 baseline.
+> Gains here use the *hardware* encoder. Re-verified on **live-action** content
+> (Xiph `foreman`, 720p) the advantage is *larger*, not smaller: AV1 reaches
+> VMAF 93 at ~1 Mbps where H.264 needs ~2 Mbps — roughly **−50 % bitrate** at
+> equal quality (vs −34 % on the animated clip). So the animation numbers are
+> conservative; AV1 helps most on the detailed, high-motion footage H.264
+> struggles with.
 
 > **Decoding AV1:** the build includes **libdav1d** (VideoLAN's AV1 decoder), so
 > AV1 decodes natively in software — no hardware decoder required. `libdav1d` is
