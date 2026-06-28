@@ -296,4 +296,26 @@ in one binary.
 > in the MSVC host compiler and complicates the build. `scale_npp` covers
 > GPU-resident scaling without `nvcc`.
 
+### ⚠️ Redistributable vs. personal build
+
+The recipe above uses `--enable-nonfree` (for **fdk-aac**) and **libnpp**
+(`scale_npp`). FFmpeg's configure flags *both* as nonfree, so it prints
+**"License: nonfree and unredistributable"** — that binary is fine for personal
+use but **cannot be legally redistributed**.
+
+To build a **GPL‑redistributable** binary (for publishing prebuilt downloads),
+drop the three nonfree pieces:
+
+| Remove | Replace with |
+|--------|--------------|
+| `--enable-nonfree` | (just `--enable-gpl`) |
+| `--enable-libfdk-aac` + `libfdk_aac` encoder | the native **`aac`** encoder (already enabled) |
+| `--enable-libnpp` + `scale_npp` filter | **`scale_vulkan`** (or `scale_cuda` with `--enable-cuda-nvcc`) for GPU scaling |
+
+Everything else — NVENC/NVDEC, QSV, AMF, SVT‑AV1, libdav1d, libvmaf, libx264,
+ONNX Runtime, Vulkan/OpenCL filters — stays. Configure then prints
+**"License: GPL version 2 or later"** and the binary is redistributable.
+(The only functional losses are fdk-aac, marginally better than native aac, and
+the `scale_npp` GPU scaler — use `scale_vulkan` for a vendor‑neutral GPU scale.)
+
 For full details of every change, see [CHANGES.md](CHANGES.md).
