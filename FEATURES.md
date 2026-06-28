@@ -1,4 +1,4 @@
-# FFmpeg Plus — Feature Guide
+# ffmpeg-gpu-npu-av1 — Feature Guide
 
 An enhanced fork of **FFmpeg n7.1.5** focused on modern hardware:
 multi-CCD CPUs, any-vendor GPUs, and NPUs. Same LGPL/GPL license as upstream.

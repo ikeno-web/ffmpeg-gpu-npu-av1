@@ -1,4 +1,4 @@
-# FFmpeg Plus - Changes
+# ffmpeg-gpu-npu-av1 — Changes
 
 This is a modified fork of [FFmpeg](https://github.com/FFmpeg/FFmpeg) (based on release **n7.1.5**).
 

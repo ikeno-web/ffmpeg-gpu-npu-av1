@@ -1,6 +1,6 @@
-# FFmpeg Plus — NPU‑accelerated FFmpeg
+# ffmpeg-gpu-npu-av1 — GPU/NPU‑accelerated FFmpeg with AV1
 
-**FFmpeg Plus is an enhanced fork of [FFmpeg](https://ffmpeg.org) (based on release `n7.1.5`) that adds hardware video transcode (NVENC / QSV / AMF + AV1), can offload AI/ML video processing to an NPU (Neural Processing Unit), and improves multi‑core CPU and any‑vendor GPU acceleration.**
+**An enhanced fork of [FFmpeg](https://ffmpeg.org) (based on release `n7.1.5`) that adds hardware video transcode (NVENC / QSV / AMF + AV1), can offload AI/ML video processing to an NPU (Neural Processing Unit), and improves multi‑core CPU and any‑vendor GPU acceleration.**
 
 Same license as upstream FFmpeg (LGPL v2.1+ / GPL v2+).
 
@@ -10,7 +10,7 @@ Same license as upstream FFmpeg (LGPL v2.1+ / GPL v2+).
 
 ## 🧠 NPU support — what it is and what it does
 
-Modern PCs (AMD Ryzen AI, Intel Core Ultra, Qualcomm Snapdragon X) ship an **NPU**: a dedicated low‑power chip for neural‑network inference. FFmpeg Plus can run its **DNN filters on the NPU** through **ONNX Runtime + DirectML**.
+Modern PCs (AMD Ryzen AI, Intel Core Ultra, Qualcomm Snapdragon X) ship an **NPU**: a dedicated low‑power chip for neural‑network inference. This fork can run its **DNN filters on the NPU** through **ONNX Runtime + DirectML**.
 
 ### What the NPU actually does here
 
@@ -20,13 +20,13 @@ AI video filters (super‑resolution, denoise, detection, …) run a neural netw
 - competes with decoding/encoding/filtering for CPU cores,
 - heats up the machine and drains battery on laptops.
 
-FFmpeg Plus sends that inference to the **NPU** instead. The result:
+It sends that inference to the **NPU** instead. The result:
 
 - **CPU load drops dramatically** — the heavy matrix math leaves the CPU entirely.
 - The freed CPU cores stay available for decode/encode/muxing, so the **whole pipeline breathes easier**.
 - **Lower power / heat** — the NPU is built for exactly this work and does it at a fraction of the wattage.
 
-> The NPU is intentionally used for **auxiliary / inference tasks** (the DNN filters), **not** for the core decode/encode path. NPUs are great at steady neural workloads but are not faster than dedicated video hardware for codecs — so FFmpeg Plus keeps codecs on the CPU/GPU video engines and routes only the ML work to the NPU.
+> The NPU is intentionally used for **auxiliary / inference tasks** (the DNN filters), **not** for the core decode/encode path. NPUs are great at steady neural workloads but are not faster than dedicated video hardware for codecs — so this fork keeps codecs on the CPU/GPU video engines and routes only the ML work to the NPU.
 
 ### Measured effect (CPU‑offload evidence)
 
