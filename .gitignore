@@ -43,3 +43,4 @@
 /tools/python/__pycache__/
 .claude/
 build-redist/
+dist/
