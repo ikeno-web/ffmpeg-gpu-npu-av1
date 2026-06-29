@@ -162,6 +162,23 @@ the obvious default wherever AV1 decode is supported (browsers, recent TVs/phone
 `hevc_nvenc` is the middle ground for hardware that lacks AV1; `h264_nvenc` remains
 the universal-compatibility baseline.
 
+### Target-VMAF auto-tuning — `tools/vmaf_tune.py`
+
+Instead of guessing a CRF/CQ, let the tool *find* the smallest-file setting that
+still meets a quality target. It binary-searches the quality parameter, measuring
+each step with this build's libvmaf, and reports (optionally producing) the encode.
+
+```bash
+FFMPEG=./ffmpeg.exe python tools/vmaf_tune.py -i in.mp4 -o out.mp4 \
+    --encoder av1_nvenc --target-vmaf 93 --preset p6
+```
+It returns the **largest** q whose VMAF ≥ target (smallest file meeting quality).
+Example on Xiph `foreman` 720p, `av1_nvenc`, target VMAF 93: it picked `-cq 40`
+(≈1.07 Mbps) — vs the naive high-quality `-cq 20` at ≈9 Mbps for the same
+perceptual quality, an **8.5× smaller file**. Works with `av1_nvenc`/`hevc_nvenc`/
+`h264_nvenc` (`-cq`) and `libsvtav1`/`libx264`/`libx265` (`-crf`); a short
+`--sample-seconds` keeps the search fast, then `-o` does the full-length encode.
+
 ---
 
 ## 1. CCD / NUMA-aware threading
