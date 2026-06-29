@@ -10,6 +10,13 @@ Same license as upstream FFmpeg (LGPL v2.1+ / GPL v2+).
 
 ## 🧠 NPU support — what it is and what it does
 
+> **Doing super-resolution or denoise?** The standalone companion tool
+> **[npuscale](https://github.com/ikeno-web/npuscale)** drives ONNX Runtime + DirectML
+> directly (worker pool, IoBinding, FP16, tiling, temporal models) and is faster
+> than the in-graph DNN backend below. Use this fork's `dnn_backend=onnxruntime`
+> when you need the inference *inside* an ffmpeg filter graph.
+
+
 Modern PCs (AMD Ryzen AI, Intel Core Ultra, Qualcomm Snapdragon X) ship an **NPU**: a dedicated low‑power chip for neural‑network inference. This fork can run its **DNN filters on the NPU** through **ONNX Runtime + DirectML**.
 
 ### What the NPU actually does here
