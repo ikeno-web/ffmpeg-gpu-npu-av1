@@ -272,6 +272,12 @@ dependency.
 
 ### Full-featured build (Windows / MSYS2 ucrt64)
 
+> **One command:** from the repo root in an MSYS2 ucrt64 shell, run
+> `./tools/build.sh` (full/personal) or `./tools/build.sh --redistributable`
+> (GPL build, drops fdk-aac/libnpp). It installs deps, auto-detects the CUDA
+> path, configures, verifies the License line, and builds. `--dry-run` prints
+> the exact `./configure` command. The manual steps below are what it automates.
+
 Install dependencies first:
 ```bash
 pacman -S --needed \
