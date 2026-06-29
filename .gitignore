@@ -44,3 +44,4 @@
 .claude/
 build-redist/
 dist/
+*.zip
