@@ -221,7 +221,7 @@ Available meta-filters: `scale_gpu`, `avgblur_gpu`, `transpose_gpu`,
 
 ## 3. NPU / ML inference (ONNX Runtime + DirectML)
 
-> **For super-resolution / denoise, prefer the standalone [npuscale](https://github.com/ikeno-web/npuscale) tool.**
+> **For super-resolution / denoise, prefer the bundled [npuscale](npuscale/) tool (in this repo).**
 > The in-graph `dnn_backend=onnxruntime` route below works, but FFmpeg's DNN
 > framework spawns a thread per inference and limits optimization. npuscale pipes
 > raw frames to/from stock ffmpeg and drives ONNX Runtime + DirectML directly, so
