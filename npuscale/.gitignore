@@ -1,0 +1,15 @@
+bin/
+obj/
+*.user
+.vs/
+publish/
+release/
+*.mp4
+*.avi
+*.mkv
+# model weights / exports — shipped as release assets, not in git
+*.onnx
+*.pth
+_src_frame.png
+tools/_*.png
+!tools/ci_identity.onnx

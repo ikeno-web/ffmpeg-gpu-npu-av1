@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build & smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore & build
+        run: dotnet build -c Release
+
+      - name: CLI runs (--help)
+        run: dotnet run -c Release --no-build -- --help
+
+      # End-to-end smoke on Linux: a committed identity model (output == input,
+      # same resolution) proves the decode -> ONNX -> encode pipeline works on the
+      # CPU EP. ffmpeg comes from apt (reliable, no flaky third-party action).
+      - name: Smoke test (Linux, CPU EP)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          ffmpeg -hide_banner -loglevel error -f lavfi \
+            -i testsrc=size=320x240:rate=10:duration=1 -pix_fmt yuv420p -c:v libx264 -y in.mp4
+          dotnet run -c Release --no-build -- \
+            -i in.mp4 -o out.mp4 --model tools/ci_identity.onnx --provider cpu --workers 2 -v
+          test -f out.mp4
+          frames=$(ffprobe -v error -count_frames -select_streams v:0 \
+            -show_entries stream=nb_read_frames -of csv=p=0 out.mp4)
+          echo "output frames: $frames"
+          test "$frames" -ge 8
